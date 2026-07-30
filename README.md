@@ -1,5 +1,35 @@
 # carve-api
 
+> **Running on Bluehost, not Cloudflare.** The Workers/D1 version is still in
+> the git history and in `src/*.js` / `wrangler.jsonc` as reference. What runs
+> is PHP 8.4 + MySQL 8 at `https://api.futureoftheisles.org`.
+
+## How deploys work
+
+Push to `main`. The server pulls it within two minutes.
+
+```
+cron (*/2) → tools/deploy.sh → git fetch → lint → reset --hard → check /health
+```
+
+There is no build step and nothing pushes to the server. It pulls, because
+shared hosting has no deploy hooks. Consequences worth knowing:
+
+- **What runs always corresponds to a commit.** `GET /health` reports it, so
+  "is the fix live yet" needs no shell access.
+- **A syntax error will not deploy.** The script stages the new tree, runs
+  `php -l` over it, and refuses rather than swapping in a front controller
+  that would take down every route — including the Stripe webhook, which
+  Stripe then retries for days.
+- **The checkout is a deploy target, not a workspace.** `reset --hard` means
+  hand edits on the server are destroyed on the next pull. That is the point:
+  a server quietly diverging from the repo is worse than losing an edit.
+- Log: `/home1/fxxfjgmy/logs/carve-deploy.log`. Only real deploys and
+  refusals are logged — a fetch failure exits quietly so an outage does not
+  bury the errors that matter.
+
+Rollback is `git revert` and a two-minute wait.
+
 Entitlement service for [Carve](https://carve.futureoftheisles.org). Google
 sign-in, Stripe purchases, and the one question the game cannot answer for
 itself: **is this signed-in person allowed to play the paid collections?**
