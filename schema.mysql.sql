@@ -60,10 +60,23 @@ CREATE TABLE IF NOT EXISTS users (
 -- lost in translation — and it is load-bearing on the payment path. It stops
 -- a double grant while still allowing a re-purchase after a refund.
 --
--- The equivalent here is a generated column that holds `user_id:sku` while
--- the row is active and NULL once it is revoked, with a UNIQUE index over it.
+-- The equivalent is a generated column that is 1 while the row is active and
+-- NULL once revoked, carried in a composite unique key with user_id and sku.
 -- MySQL unique indexes permit unlimited NULLs, so revoked rows stop competing
 -- the moment they are revoked. Same guarantee, different mechanism.
+--
+-- WHY THE EXPRESSION DOES NOT MENTION user_id, WHICH LOOKS LIKE THE OBVIOUS
+-- WAY TO WRITE IT. The first version generated CONCAT(user_id,':',sku), which
+-- reads better and does not work: MySQL refuses ON DELETE CASCADE on any
+-- column a generated column depends on, so the foreign key below failed with
+-- error 1215 and the whole migration stopped. Verified in isolation on this
+-- server — FK+CASCADE alone is fine, FK+CASCADE plus a generated column over
+-- user_id is rejected, and dropping the cascade makes it work again.
+--
+-- Putting user_id in the INDEX instead of the EXPRESSION keeps both
+-- properties: the uniqueness constraint still scopes per user, and the
+-- cascade that makes GDPR deletion one statement survives. Do not "tidy" this
+-- into the more readable form.
 --
 -- STORED rather than VIRTUAL because MySQL cannot index a virtual column in
 -- all versions and a stored one is unambiguous.
@@ -86,14 +99,13 @@ CREATE TABLE IF NOT EXISTS entitlements (
   granted_at         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   revoked_at         DATETIME        DEFAULT NULL,
 
-  active_key VARCHAR(320)
-    GENERATED ALWAYS AS (
-      IF(revoked_at IS NULL, CONCAT(user_id, ':', sku), NULL)
-    ) STORED,
+  -- 1 while active, NULL once revoked. Depends on revoked_at ONLY — see above.
+  active             TINYINT UNSIGNED
+                     GENERATED ALWAYS AS (IF(revoked_at IS NULL, 1, NULL)) STORED,
 
   PRIMARY KEY (id),
   UNIQUE KEY uniq_entitlements_session (stripe_session_id),
-  UNIQUE KEY uniq_entitlements_active (active_key),
+  UNIQUE KEY uniq_entitlements_active (user_id, sku, active),
   KEY idx_entitlements_user (user_id),
   CONSTRAINT fk_entitlements_user
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
