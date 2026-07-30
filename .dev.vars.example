@@ -1,0 +1,20 @@
+# Copy to `.dev.vars` (gitignored) for local `wrangler dev`.
+# In production set the same names with `wrangler secret put NAME`.
+#
+# Use TEST keys here. A live Stripe key in a local dev file is how test
+# purchases become real charges.
+
+# Google OAuth — console.cloud.google.com > APIs & Services > Credentials.
+# Scopes stay minimal: openid, email, profile. Anything broader triggers
+# heavier Google verification and buys nothing for entitlement.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Stripe — dashboard.stripe.com > Developers > API keys (test mode).
+STRIPE_SECRET_KEY=
+
+# Stripe — the signing secret for THIS endpoint, from the webhook's own page,
+# or printed by `stripe listen`. Not the API key, and not reusable between
+# endpoints. Without it the webhook must reject everything: an unverified
+# webhook lets anyone POST a fake payment and grant themselves the packs.
+STRIPE_WEBHOOK_SECRET=

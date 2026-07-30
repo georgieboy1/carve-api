@@ -1,0 +1,69 @@
+name: deploy
+
+# Git-based deploys were the reason this service is not on the Bluehost box:
+# a push to main is the only way code reaches production, so what is running
+# is always something with a commit hash you can revert to.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never let two deploys race. The second would win non-deterministically.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      # Syntax check before anything is published. A worker that throws on
+      # module evaluation takes every route down at once, including the
+      # Stripe webhook — and Stripe retries a failing webhook for days.
+      - name: Check syntax
+        run: npm run check
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      # Smoke test. `wrangler deploy` succeeding only means Cloudflare
+      # accepted the upload; it says nothing about whether the thing runs or
+      # whether D1 is bound. /health answers both, and reports 503 on an
+      # unmigrated database rather than passing and failing later.
+      - name: Verify /health
+        env:
+          API_ORIGIN: ${{ vars.API_ORIGIN }}
+        run: |
+          if [ -z "$API_ORIGIN" ]; then
+            echo "::warning::API_ORIGIN repo variable not set — skipping smoke test"
+            exit 0
+          fi
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /tmp/health.json -w '%{http_code}' "$API_ORIGIN/health" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "healthy:"; cat /tmp/health.json; exit 0
+            fi
+            echo "attempt $i: HTTP $code"; sleep 5
+          done
+          echo "::error::/health did not return 200 after deploy"
+          cat /tmp/health.json 2>/dev/null || true
+          exit 1
+
+# Schema migrations are deliberately NOT run here. schema.sql is idempotent
+# (every statement is IF NOT EXISTS) so it would be safe today, but a future
+# migration that drops or rewrites a column would not be — and a pipeline
+# that has always applied migrations silently is the one that applies the
+# destructive one silently too. Run them by hand:
+#   npm run db:migrate

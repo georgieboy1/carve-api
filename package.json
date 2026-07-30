@@ -1,0 +1,20 @@
+{
+  "name": "carve-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Entitlement service for Carve — Google sign-in, Stripe purchases, offline-grace entitlement checks.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create carve",
+    "db:migrate": "wrangler d1 execute carve --remote --file=./schema.sql",
+    "db:migrate:local": "wrangler d1 execute carve --local --file=./schema.sql",
+    "db:console": "wrangler d1 execute carve --remote --command",
+    "check": "node --check src/index.js && node --check src/http.js",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.115.0"
+  }
+}

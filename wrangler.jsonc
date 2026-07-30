@@ -1,0 +1,49 @@
+{
+  // Cloudflare Workers config for the Carve entitlement service.
+  //
+  // Chosen over the studio's Bluehost box deliberately: the revenue path
+  // (auth, entitlement, Stripe webhooks) needs a deploy pipeline and
+  // predictable uptime, and a Stripe webhook needs an endpoint you can
+  // redeploy with confidence. See blueprint.md.
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  "name": "carve-api",
+  "main": "src/index.js",
+
+  // Pin the runtime behaviour. Bumping this can change built-in semantics,
+  // so move it on purpose and redeploy behind a check, never as a drive-by.
+  "compatibility_date": "2026-07-29",
+
+  // Logs and traces in the dashboard. On a payment path, being able to see
+  // why a webhook 500'd three hours ago is not optional.
+  "observability": { "enabled": true },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "carve",
+      // Filled in by `npm run db:create` — wrangler prints the id.
+      "database_id": "PLACEHOLDER_RUN_DB_CREATE"
+    }
+  ],
+
+  "vars": {
+    /* Browser origins allowed to call this API with credentials. Comma
+       separated, exact origins — no wildcards, because a wildcard is
+       incompatible with Access-Control-Allow-Credentials and the whole point
+       of this service is authenticated requests.
+
+       localhost:5173 is the game's dev server (see its README). */
+    "ALLOWED_ORIGINS": "https://carve.futureoftheisles.org,http://localhost:5173,http://127.0.0.1:5173",
+
+    // Cookie lifetime for a sign-in session, in days.
+    "SESSION_DAYS": "30"
+  }
+
+  /* SECRETS are not here and must never be. Set them with:
+       wrangler secret put GOOGLE_CLIENT_SECRET
+       wrangler secret put STRIPE_SECRET_KEY
+       wrangler secret put STRIPE_WEBHOOK_SECRET
+     For local dev put the same names in .dev.vars (gitignored).
+     GOOGLE_CLIENT_ID is not secret but lives with them for symmetry. */
+}

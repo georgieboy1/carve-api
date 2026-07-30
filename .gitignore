@@ -1,0 +1,8 @@
+node_modules/
+.wrangler/
+.DS_Store
+*.log
+
+# Local secrets: Google client secret, Stripe secret key, webhook signing
+# secret. Production values live in `wrangler secret put`, never in the repo.
+.dev.vars
