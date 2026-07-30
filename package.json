@@ -11,7 +11,7 @@
     "db:migrate": "wrangler d1 execute carve --remote --file=./schema.sql",
     "db:migrate:local": "wrangler d1 execute carve --local --file=./schema.sql",
     "db:console": "wrangler d1 execute carve --remote --command",
-    "check": "node --check src/index.js && node --check src/http.js",
+    "check": "for f in src/*.js; do node --check \"$f\" || exit 1; done && echo 'all modules parse'",
     "tail": "wrangler tail"
   },
   "devDependencies": {

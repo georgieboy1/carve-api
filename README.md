@@ -22,17 +22,44 @@ can play on a plane, and the grace lapses if they never come back online.
 
 ## What is here
 
-Step 1 of the plan: platform, schema, deploy pipeline. Nothing user-visible.
+Steps 1–2: platform, schema, deploy pipeline, and Google sign-in.
 
 | File | Role |
 |---|---|
 | `schema.sql` | Four tables. Adding a column is a privacy-policy change. |
-| `src/index.js` | Entry and router. `/health` only, so far. |
+| `src/index.js` | Entry and router. |
 | `src/http.js` | CORS, JSON responses, session cookie, token hashing. |
+| `src/auth.js` | Google OAuth (code + PKCE), sessions, signout. |
+| `src/entitlement.js` | Entitlement read and the offline grace. |
 | `wrangler.jsonc` | Worker config and the D1 binding. |
 | `.github/workflows/deploy.yml` | Push to `main` → deploy → smoke test. |
 
-Sign-in is step 2, Stripe is step 3; the router lists where each route lands.
+| Route | Status |
+|---|---|
+| `GET /health` | done |
+| `GET /auth/google` | done |
+| `GET /auth/callback` | done |
+| `POST /auth/signout` | done |
+| `GET /entitlement` | done |
+| `POST /checkout` | step 3 |
+| `POST /webhook/stripe` | step 3 |
+| `POST /account/delete` | step 4 |
+
+### Google Cloud setup, before sign-in can work
+
+APIs & Services → Credentials → **OAuth 2.0 Client ID**, type *Web
+application*. Then:
+
+- **Authorised redirect URI**: `https://api.futureoftheisles.org/auth/callback`
+  — must match `API_ORIGIN` in `wrangler.jsonc` byte for byte, including
+  scheme and any trailing path. A mismatch is the single most common failure
+  and Google's error message for it is unhelpful.
+- Scopes stay `openid email profile`. Nothing broader — it triggers heavier
+  verification and buys entitlement nothing.
+- The consent screen needs a published **privacy policy URL**, which is one
+  more reason the policy rewrite is not an afterthought.
+
+Then `wrangler secret put GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
 
 ## Setup
 

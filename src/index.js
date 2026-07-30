@@ -17,16 +17,18 @@
 
    ROUTES
      GET  /health          liveness + database reachability
-     GET  /auth/google     [step 2] begin sign-in
-     GET  /auth/callback   [step 2] finish sign-in
-     POST /auth/signout    [step 2]
-     GET  /entitlement     [step 2] the signed-in user's entitlements
+     GET  /auth/google     begin Google sign-in
+     GET  /auth/callback   finish sign-in, open a session
+     POST /auth/signout    delete the session row
+     GET  /entitlement     the signed-in user's entitlements + offline grace
      POST /checkout        [step 3] create a Stripe Checkout Session
      POST /webhook/stripe  [step 3] checkout.session.completed
      POST /account/delete  [step 4] GDPR Art.17 — one cascading DELETE
    ============================================================ */
 
 import { json, fail, preflight } from './http.js';
+import * as auth from './auth.js';
+import * as entitlement from './entitlement.js';
 
 export default {
   async fetch(request, env) {
@@ -39,6 +41,18 @@ export default {
       switch (route) {
         case 'GET /health':
           return await health(request, env);
+
+        case 'GET /auth/google':
+          return await auth.begin(request, env);
+
+        case 'GET /auth/callback':
+          return await auth.callback(request, env);
+
+        case 'POST /auth/signout':
+          return await auth.signout(request, env);
+
+        case 'GET /entitlement':
+          return await entitlement.read(request, env);
 
         default:
           return fail('not_found', { status: 404, request, env });

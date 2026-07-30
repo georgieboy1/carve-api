@@ -37,7 +37,18 @@
     "ALLOWED_ORIGINS": "https://carve.futureoftheisles.org,http://localhost:5173,http://127.0.0.1:5173",
 
     // Cookie lifetime for a sign-in session, in days.
-    "SESSION_DAYS": "30"
+    "SESSION_DAYS": "30",
+
+    /* How long the client may honour a cached entitlement with no network.
+       Decided 2026-07-29. Must never exceed SESSION_DAYS — a longer grace
+       would have the client trusting an entitlement whose session the server
+       has already stopped recognising. entitlement.js clamps and warns. */
+    "ENTITLEMENT_GRACE_DAYS": "30",
+
+    /* The public origin of this worker. Google requires redirect_uri to match
+       its registered value byte for byte, and behind a proxy the request host
+       is not always what Google saw — so it is configured, not inferred. */
+    "API_ORIGIN": "https://api.futureoftheisles.org"
   }
 
   /* SECRETS are not here and must never be. Set them with:
