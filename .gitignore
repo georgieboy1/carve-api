@@ -6,3 +6,7 @@ node_modules/
 # Local secrets: Google client secret, Stripe secret key, webhook signing
 # secret. Production values live in `wrangler secret put`, never in the repo.
 .dev.vars
+
+# Config lives on the server only, outside the webroot, mode 0600.
+# Never here: this repo is public so the box can pull with no credentials.
+carve-config.ini

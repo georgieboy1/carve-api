@@ -1,0 +1,47 @@
+# Carve API — webroot rules.
+#
+# Written into git rather than created on the server on purpose: the Agent
+# Connector blocks agents from writing .htaccess directly, and git delivering
+# it is not that. It also means the routing rules are versioned and revertible
+# like everything else, instead of being a thing someone edited once.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Route everything that is not a real file to the front controller. Real
+  # files are served directly, but there are none here besides index.php —
+  # the application lives one level up, outside the webroot.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# The parent site is WordPress and Newfold's plugin sets aggressive Expires
+# headers at the root. Those must not reach an API: a cached entitlement
+# response would keep telling a refunded user they still own the packs, and a
+# cached 401 would keep telling a signed-in user they are not. Individual
+# responses also send Cache-Control: no-store; this is the belt to that
+# braces, because the header we most need is the one a proxy strips.
+<IfModule mod_expires.c>
+  ExpiresActive Off
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set Cache-Control "no-store, no-cache, must-revalidate"
+  Header always unset Pragma
+  Header always set X-Content-Type-Options "nosniff"
+  # This is a JSON API; it is never a frame and never a document to sniff.
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "no-referrer"
+</IfModule>
+
+# Belt and braces: even though the app lives outside this directory, refuse to
+# serve anything that looks like source or config if the layout ever changes.
+<FilesMatch "\.(ini|sql|md|json|lock|log|ya?ml)$">
+  Require all denied
+</FilesMatch>
+
+# Never serve the git metadata. A readable .git/ hands over the entire
+# history, which on a public repo is harmless and on a private one is not —
+# and this directory should not be guessing which it is.
+RedirectMatch 404 /\.git
